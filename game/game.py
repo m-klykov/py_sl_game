@@ -1,6 +1,6 @@
 import pygame
 import sys
-
+from game.base import BaseMode
 
 class Game:
     def __init__(self):
@@ -23,6 +23,9 @@ class Game:
 
         # Шрифт для текста
         self.font = pygame.font.Font(None, 36)
+
+        # Текущий режим игры
+        self.current_mode = BaseMode(self)
 
     def toggle_fullscreen(self):
         """Переключение между полноэкранным и оконным режимами."""
@@ -58,6 +61,11 @@ class Game:
 
         return exit_rect, toggle_rect
 
+    # вернуть область отображения игрі
+    def getViewport(self):
+        return pygame.Rect(0, self.status_bar_height, self.screen.get_width(),
+                           self.screen.get_height() - self.status_bar_height)
+
     def run(self):
         """Основной игровой цикл."""
         while self.running:
@@ -75,14 +83,21 @@ class Game:
                     elif toggle_rect.collidepoint(mouse_pos):
                         self.toggle_fullscreen()
 
+                # Передача событий текущему режиму
+                result = self.current_mode.handle_event(event)
+                if result == "switch_mode":
+                    print("Switching mode...")  # Здесь можно реализовать логику переключения
+
             # Обновление экрана
             self.screen.fill(self.bg_color)
 
             # Отрисовка строки состояния
             self.draw_status_bar()
 
+            # Отрисовка текущего режима
+            self.current_mode.draw()
+
             pygame.display.flip()
             self.clock.tick(60)
 
         pygame.quit()
-
