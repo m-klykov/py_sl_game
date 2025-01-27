@@ -34,6 +34,8 @@ class Game:
 
         self.alert = None
 
+        self.last_mode = '';
+
         # Текущий режим игры
         self.switch_mode('start')
 
@@ -49,6 +51,9 @@ class Game:
             self.current_mode = BattleshipMode(self)
         else:
             self.show_alert('Режим "'+mode+'"')
+            return
+
+        self.last_mode = mode
 
     def toggle_fullscreen(self):
         """Переключение между полноэкранным и оконным режимами."""
@@ -85,7 +90,17 @@ class Game:
             pygame.draw.rect(self.screen, self.hover_color, toggle_rect.inflate(10, 10), border_radius=5)
         pygame.draw.rect(self.screen, self.text_color, toggle_rect, 3)
 
-        return exit_rect, toggle_rect
+        # Перезапуск уровня (кружок)
+        circle_center = (toggle_rect.left - 42, self.status_bar_height // 2)  # Центр круга
+        circle_radius = 16  # Радиус круга
+        circle_rect = pygame.Rect(circle_center[0] - circle_radius, circle_center[1] - circle_radius,
+                                  2 * circle_radius, 2 * circle_radius)
+        if circle_rect.collidepoint(pygame.mouse.get_pos()):
+            pygame.draw.circle(self.screen, self.hover_color, circle_center,
+                               circle_radius + 5)  # Увеличение радиуса при наведении
+        pygame.draw.circle(self.screen, self.text_color, circle_center, circle_radius, 3)  # Основной круг
+
+        return exit_rect, toggle_rect, circle_rect
 
     # вернуть область отображения игрі
     def getViewport(self):
@@ -108,11 +123,14 @@ class Game:
                         mouse_pos = pygame.mouse.get_pos()
 
                         # Проверка кликов по кнопкам
-                        exit_rect, toggle_rect = self.draw_status_bar()
+                        exit_rect, toggle_rect, reset_rect = self.draw_status_bar()
                         if exit_rect.collidepoint(mouse_pos):
                             self.running = False
                         elif toggle_rect.collidepoint(mouse_pos):
                             self.toggle_fullscreen()
+                        elif reset_rect.collidepoint(mouse_pos):
+                            if self.last_mode:
+                                self.switch_mode(self.last_mode)
 
                     # Передача событий текущему режиму
                     result = self.current_mode.handle_event(event)

@@ -37,15 +37,25 @@ class BattleshipGameModel:
                 return ship_coordinates
 
     def can_place_ship(self, x, y, size, orientation):
-        if orientation == 'H' and y + size > self.board_size:
-            return False
-        if orientation == 'V' and x + size > self.board_size:
-            return False
-        for i in range(size):
-            if orientation == 'H' and self.board[x][y + i] != '~':
+        """Проверяет, можно ли разместить корабль с учетом соседних клеток."""
+        if orientation == 'H':
+            if y + size > self.board_size:
                 return False
-            if orientation == 'V' and self.board[x + i][y] != '~':
+            for i in range(-1, size + 1):  # Добавляем зазор с обеих сторон
+                for dx in [-1, 0, 1]:  # Проверяем строку выше, саму строку и строку ниже
+                    nx, ny = x + dx, y + i
+                    if 0 <= nx < self.board_size and 0 <= ny < self.board_size:
+                        if self.board[nx][ny] != '~':
+                            return False
+        elif orientation == 'V':
+            if x + size > self.board_size:
                 return False
+            for i in range(-1, size + 1):  # Добавляем зазор сверху и снизу
+                for dy in [-1, 0, 1]:  # Проверяем столбец левее, сам столбец и столбец правее
+                    nx, ny = x + i, y + dy
+                    if 0 <= nx < self.board_size and 0 <= ny < self.board_size:
+                        if self.board[nx][ny] != '~':
+                            return False
         return True
 
     def make_move(self, x, y):
