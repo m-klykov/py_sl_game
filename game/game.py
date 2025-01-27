@@ -3,8 +3,12 @@ import sys
 from game.base import BaseMode
 from game.menu import MainMenu
 from game.alert import AlertBox
+from game.battleship_mode import BattleshipMode
 
 GAME_NAME = "Моя гра";
+WIN_WIDTH = 800
+WIN_HEIGHT = 800
+
 
 class Game:
     def __init__(self):
@@ -41,13 +45,15 @@ class Game:
             self.current_mode = BaseMode(self,'main_menu')
         elif mode=='main_menu':
             self.current_mode = MainMenu(self)
+        elif mode=='battleship':
+            self.current_mode = BattleshipMode(self)
         else:
             self.show_alert('Режим "'+mode+'"')
 
     def toggle_fullscreen(self):
         """Переключение между полноэкранным и оконным режимами."""
         if self.is_fullscreen:
-            self.screen = pygame.display.set_mode((800, 600))
+            self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
         else:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         self.is_fullscreen = not self.is_fullscreen

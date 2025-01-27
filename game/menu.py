@@ -6,9 +6,9 @@ class MainMenu(BaseMode):
         super().__init__(game)
         self.mode_name = 'Головне меню'
         self.menu_items = [
-            {'mode': 'level1', 'text': 'Уровень 1'},
-            {'mode': 'level2', 'text': 'Уровень 2'},
-            {'mode': 'level3', 'text': 'Уровень 3'}
+            {'mode': 'battleship', 'text': 'Морской бой'},
+            # {'mode': 'level2', 'text': 'Уровень 2'},
+            # {'mode': 'level3', 'text': 'Уровень 3'}
         ]
         self.selected_item = 0  # Индекс выбранного пункта меню
 
