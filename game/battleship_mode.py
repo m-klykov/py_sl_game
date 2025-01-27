@@ -16,7 +16,13 @@ class BattleshipMode(BaseMode):
             x, y = self.get_cell_from_mouse(mouse_pos)
             if 0 <= x < self.model.board_size and 0 <= y < self.model.board_size:
                 result = self.model.make_move(x, y)
-                self.message = f"Результат выстрела: {result}"
+                if result == 'hit':
+                    self.message = "Вы попали!"
+                elif result == 'killed':
+                    self.message = "Корабль потоплен!"
+                elif result == 'miss':
+                    self.message = "Мимо!"
+
                 if self.model.is_game_over():
                     self.message = "Игра окончена!"
                     return "game_over"  # Игра окончена
@@ -68,6 +74,15 @@ class BattleshipMode(BaseMode):
         x, y = self.selected_cell
         highlight_rect = pygame.Rect(self.v_left + x * cell_size, self.v_top +  y * cell_size, cell_size, cell_size)
         pygame.draw.rect(self.game.screen, (255, 255, 0), highlight_rect, 3)  # Желтая рамка для выделенной клетки
+
+        # Отображение информации о кораблях
+        total, killed, wounded = self.model.get_ship_status()
+        font = pygame.font.Font(None, 36)
+
+        info_text = f"Всего кораблей: {total}, Потоплено: {killed}, Ранено: {wounded}"
+        info_surface = font.render(info_text, True, (255, 255, 255))
+        info_rect = info_surface.get_rect(center=(self.viewport.centerx, self.viewport.top + 5))
+        self.game.screen.blit(info_surface, info_rect)
 
         # Отображаем сообщение о ходе игры
         font = pygame.font.Font(None, 36)
