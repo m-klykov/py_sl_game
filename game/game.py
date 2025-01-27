@@ -1,6 +1,10 @@
 import pygame
 import sys
 from game.base import BaseMode
+from game.menu import MainMenu
+from game.alert import AlertBox
+
+GAME_NAME = "Моя гра";
 
 class Game:
     def __init__(self):
@@ -24,8 +28,21 @@ class Game:
         # Шрифт для текста
         self.font = pygame.font.Font(None, 36)
 
+        self.alert = None
+
         # Текущий режим игры
-        self.current_mode = BaseMode(self)
+        self.switch_mode('start')
+
+    def show_alert(self, message):
+        self.alert = AlertBox(self, message)
+
+    def switch_mode(self, mode):
+        if mode=='start':
+            self.current_mode = BaseMode(self,'main_menu')
+        elif mode=='main_menu':
+            self.current_mode = MainMenu(self)
+        else:
+            self.show_alert('Режим "'+mode+'"')
 
     def toggle_fullscreen(self):
         """Переключение между полноэкранным и оконным режимами."""
@@ -40,7 +57,10 @@ class Game:
         pygame.draw.rect(self.screen, self.status_bar_color, (0, 0, self.screen.get_width(), self.status_bar_height))
 
         # Заголовок игры по центру
-        title_text = self.font.render("Моя игра", True, self.text_color)
+        title = self.current_mode.mode_name
+        if not title:
+            title = GAME_NAME
+        title_text = self.font.render(title, True, self.text_color)
         title_rect = title_text.get_rect(center=(self.screen.get_width() // 2, self.status_bar_height // 2))
         self.screen.blit(title_text, title_rect)
 
@@ -73,29 +93,42 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.running = False
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
+                if self.alert:
+                    if self.alert.handle_event(event):
+                        self.alert = None  # Закрытие алерта при клике
+                else:
 
-                    # Проверка кликов по кнопкам
-                    exit_rect, toggle_rect = self.draw_status_bar()
-                    if exit_rect.collidepoint(mouse_pos):
-                        self.running = False
-                    elif toggle_rect.collidepoint(mouse_pos):
-                        self.toggle_fullscreen()
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        mouse_pos = pygame.mouse.get_pos()
 
-                # Передача событий текущему режиму
-                result = self.current_mode.handle_event(event)
-                if result == "switch_mode":
-                    print("Switching mode...")  # Здесь можно реализовать логику переключения
+                        # Проверка кликов по кнопкам
+                        exit_rect, toggle_rect = self.draw_status_bar()
+                        if exit_rect.collidepoint(mouse_pos):
+                            self.running = False
+                        elif toggle_rect.collidepoint(mouse_pos):
+                            self.toggle_fullscreen()
+
+                    # Передача событий текущему режиму
+                    result = self.current_mode.handle_event(event)
+                    if result:
+                        self.switch_mode(result)
 
             # Обновление экрана
             self.screen.fill(self.bg_color)
 
+
             # Отрисовка строки состояния
             self.draw_status_bar()
 
+            # обновление режима
+            if not self.alert:
+                self.current_mode.update()
+
             # Отрисовка текущего режима
             self.current_mode.draw()
+
+            if self.alert:
+                self.alert.show()
 
             pygame.display.flip()
             self.clock.tick(60)
