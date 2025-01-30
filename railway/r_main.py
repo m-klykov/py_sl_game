@@ -12,8 +12,8 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (180, 180, 180)
 # LIGHT_GRAY = (245, 245, 245)
-LIGHT_GRAY = (250, 250, 250)
-PALE_RED = (255, 230, 230)
+LIGHT_GRAY = (240, 240, 240)
+PALE_RED = (255, 220, 220)
 RED = (255, 0, 0)
 
 # Глобальная переменная для режима
@@ -44,6 +44,8 @@ class Node:
             (0, -1): [],
             (0, 1): []
         }
+        self.active_track_index = {}  # Текущий активный путь в каждом направлении
+        self.semaphore_states = {}  # Состояния семафоров (True - зелёный, False - красный)
 
     def getCanvasX(self):
         return self.x * CELL_SIZE + CELL_SIZE // 2
@@ -51,19 +53,102 @@ class Node:
     def getCanvasY(self):
         return self.y * CELL_SIZE + CELL_SIZE // 2
 
+    def get_dir_tracks(self,direction):
+        """Получить список доступных треков по направлению"""
+        return [track for track in self.outs[direction] if track.enabled]
+
     def is_terminal(self):
+
         """Проверяет, является ли узел конечным (имеет ровно один активный исходящий путь)."""
         active_directions = 0
         for direction in self.outs:
-            active_tracks = [track for track in self.outs[direction] if track.enabled]
-            if active_tracks:
+            if self.get_dir_tracks(direction):
                 active_directions += 1
         return active_directions == 1
 
-    def draw(self, screen):
-        """Рисует узел, только если он является конечным."""
+    def get_active_track(self, direction):
+        """Возвращает текущий активный путь в указанном направлении."""
+        if direction not in self.active_track_index:
+            self.active_track_index[direction] = 0
+        active_tracks = self.get_dir_tracks(direction)
+        if active_tracks:
+            return active_tracks[self.active_track_index[direction] % len(active_tracks)]
+        return None
+
+    def toggle_active_track(self, direction):
+        """Переключает активный путь в указанном направлении."""
+        active_tracks = self.get_dir_tracks(direction)
+        if len(active_tracks) > 1:
+            self.active_track_index[direction] = (self.active_track_index.get(direction, 0) + 1) % len(active_tracks)
+
+    def draw_arrow(self, screen, direction):
+        """Рисует стрелку в указанном направлении."""
+        # dx, dy = direction
+        x, y = self.getCanvasX(), self.getCanvasY()
+
+        track = self.get_active_track(direction)
+
+        dx,dy = track.get_vector_for_node(self)
+
+        end_x = x + dx * CELL_SIZE // 3
+        end_y = y + dy * CELL_SIZE // 3
+        pygame.draw.line(screen, (0, 255, 0), (x, y), (end_x, end_y), 3)
+
+    def draw_semaphore(self, screen, direction):
+        """Рисует семафор в указанном направлении."""
+        dx, dy = direction
+        x, y = self.getCanvasX(), self.getCanvasY()
+        semaphore_x = x + dx * CELL_SIZE // 4
+        semaphore_y = y + dy * CELL_SIZE // 4
+        color = (0, 255, 0) if self.semaphore_states.get(direction, True) else (255, 0, 0)
+        pygame.draw.circle(screen, color, (semaphore_x, semaphore_y), 5)
+
+    def has_semaphore(self,direction):
+        active_tracks = self.get_dir_tracks(direction)
+        if len(active_tracks) != 1:
+            return False
+
+        opos_tracks = self.get_dir_tracks( (-direction[0], -direction[1]) )
+        if len(opos_tracks) != 1:
+            return False
+
+        act_track = self.get_active_track(direction)
+
+        return isinstance(act_track,CurvedTrack)
+
+
+    def handle_click(self, mouse_x, mouse_y):
+        """Обрабатывает клик мыши в режиме управления."""
+        x, y = self.getCanvasX(), self.getCanvasY()
+
+        for direction in self.outs:
+            active_tracks = self.get_dir_tracks(direction)
+            if len(active_tracks) > 1:
+                # Проверяем, был ли клик на стрелке
+
+                end_x = x + direction[0] * CELL_SIZE // 3
+                end_y = y + direction[1] * CELL_SIZE // 3
+                if math.hypot(mouse_x - end_x, mouse_y - end_y) < 10:
+                    self.toggle_active_track(direction)
+            elif self.has_semaphore(direction):
+                # Проверяем, был ли клик на семафоре
+                semaphore_x = x + direction[0] * CELL_SIZE // 4
+                semaphore_y = y + direction[1] * CELL_SIZE // 4
+                if math.hypot(mouse_x - semaphore_x, mouse_y - semaphore_y) < 10:
+                    self.semaphore_states[direction] = not self.semaphore_states.get(direction, True)
+
+    def draw(self, screen, construction_mode):
+        """Рисует узел, стрелки и семафоры."""
         if self.is_terminal():
             pygame.draw.circle(screen, BLACK, (self.getCanvasX(), self.getCanvasY()), 5)
+
+        if not construction_mode:
+            for direction in self.outs:
+                active_tracks = self.get_dir_tracks(direction)
+                if len(active_tracks) > 1:
+                    self.draw_arrow(screen, direction)
+                elif self.has_semaphore(direction):
+                    self.draw_semaphore(screen, direction)
 
 class Track:
     def __init__(self, node1, node2):
@@ -79,10 +164,21 @@ class Track:
         self.node1.outs[(self.n1_dx,self.n1_dy)].append(self)
         self.node2.outs[(self.n2_dx,self.n2_dy)].append(self)
 
+    def get_vector_for_node(self,node):
+        if node==self.node1:
+            dx1, dy1, dx2, dy2 = self.n1_dx, self.n1_dy, self.n2_dx, self.n2_dy
+        else:
+            dx1, dy1, dx2, dy2 = self.n2_dx, self.n2_dy, self.n1_dx, self.n1_dy
+
+        if dy1 == 0:
+            return dx1, -dy2 / 3
+        else:
+            return -dx2 / 3,dy1
+
     def get_color(self, is_hovered):
         """Возвращает цвет пути в зависимости от его состояния и наведения."""
         if self.enabled:
-            return RED if is_hovered else BLACK
+            return RED if is_hovered and construction_mode else BLACK
         else:
             return PALE_RED if is_hovered else LIGHT_GRAY
 
@@ -214,20 +310,35 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            construction_mode = not construction_mode  # Переключаем режим
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            for track in tracks:
-                if track.is_hovered(*event.pos):
-                    # print(track.node1.outs)
-                    track.toggle()
+            if construction_mode:
+                # В режиме конструирования переключаем пути
+                for track in tracks:
+                    if track.is_hovered(*event.pos):
+                        track.toggle()
+            else:
+                # В режиме управления переключаем стрелки и семафоры
+                for row in nodes:
+                    for node in row:
+                        node.handle_click(*event.pos)
 
     mouse_pos = pygame.mouse.get_pos()
 
-    for track in tracks:
-        track.draw(screen, mouse_pos)
+    if construction_mode:
+        # В режиме конструирования отображаем все пути
+        for track in tracks:
+            track.draw(screen, mouse_pos)
+    else:
+        # В режиме управления отображаем только активные пути
+        for track in tracks:
+            if track.enabled:
+                track.draw(screen, mouse_pos)
 
     for row in nodes:
         for node in row:
-            node.draw(screen)
+            node.draw(screen, construction_mode)
 
     pygame.display.flip()
     clock.tick(60)
