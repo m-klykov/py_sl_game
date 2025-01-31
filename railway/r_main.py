@@ -1,5 +1,6 @@
 import pygame
 import math
+import json
 
 # Константы
 GRID_SIZE_X = 10  # Размер сетки
@@ -429,6 +430,99 @@ class Train:
             x, y = self.current_track.get_position_on_track(1-self.progress)
         pygame.draw.circle(screen, self.color, (x, y), 8)
 
+def save_state(nodes, tracks, trains, construction_mode, filename="save.json"):
+    """Сохраняет состояние программы в файл."""
+    data = {
+        "nodes": [],
+        "tracks": [],
+        "trains": [],
+        "construction_mode": construction_mode
+    }
+
+    # Сохраняем узлы
+    for row in nodes:
+        for node in row:
+            node_data = {
+                "x": node.x,
+                "y": node.y,
+                # "active_track_index": node.active_track_index,
+                # "semaphore_states": node.semaphore_states,
+                "color": node.color
+            }
+            data["nodes"].append(node_data)
+
+    # Сохраняем пути
+    for track in tracks:
+        track_data = {
+            "node1": [track.node1.x, track.node1.y],
+            "node2": [track.node2.x, track.node2.y],
+            "enabled": track.enabled,
+            "type": "CurvedTrack" if isinstance(track, CurvedTrack) else "Track",
+            "direction": track.direction if isinstance(track, CurvedTrack) else ''
+        }
+        data["tracks"].append(track_data)
+
+    # Сохраняем поезда
+    for train in trains:
+        train_data = {
+            "start_node": [train.start_node.x, train.start_node.y],
+            "color": train.color,
+            "progress": train.progress,
+            "is_active": train.is_active
+        }
+        data["trains"].append(train_data)
+
+    # Записываем данные в файл
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=4)
+
+def load_state(filename="save.json"):
+    """Загружает состояние программы из файла."""
+    try:
+        with open(filename, "r") as f:
+            data = json.load(f)
+        return data
+    except FileNotFoundError:
+        return None  # Файл не существует
+
+def restore_state(data, nodes, tracks, trains):
+    """Восстанавливает состояние программы из данных."""
+    if not data:
+        return  # Нет данных для восстановления
+
+    # Восстанавливаем узлы
+    for node_data in data["nodes"]:
+        x, y = node_data["x"], node_data["y"]
+        node = nodes[x][y]
+        # node.active_track_index = node_data["active_track_index"]
+        # node.semaphore_states = node_data["semaphore_states"]
+        node.color = node_data["color"]
+
+    # Восстанавливаем пути
+    tracks.clear()
+    for track_data in data["tracks"]:
+        node1 = nodes[track_data["node1"][0]][track_data["node1"][1]]
+        node2 = nodes[track_data["node2"][0]][track_data["node2"][1]]
+        if track_data["type"] == "CurvedTrack":
+            track = CurvedTrack(node1, node2, track_data["direction"])
+        else:
+            track = Track(node1, node2)
+        track.enabled = track_data["enabled"]
+        track.assign_to_nodes()
+        tracks.append(track)
+
+    # Восстанавливаем поезда
+    trains.clear()
+    for train_data in data["trains"]:
+        start_node = nodes[train_data["start_node"][0]][train_data["start_node"][1]]
+        train = Train(start_node, train_data["color"])
+        train.progress = train_data["progress"]
+        train.is_active = train_data["is_active"]
+        trains.append(train)
+
+    # Возвращаем режим
+    return data["construction_mode"]
+
 # Инициализация Pygame
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_SIZE_X, SCREEN_SIZE_Y))
@@ -458,6 +552,11 @@ for track in tracks:
 # Глобальный список поездов
 trains = []
 
+# Загрузка состояния при запуске
+data = load_state()
+if data:
+    construction_mode = restore_state(data, nodes, tracks, trains)
+
 # Главный цикл
 running = True
 while running:
@@ -466,7 +565,10 @@ while running:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
+            # Сохраняем состояние перед выходом
+            save_state(nodes, tracks, trains, construction_mode)
             running = False
+
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
             construction_mode = not construction_mode  # Переключаем режим
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
