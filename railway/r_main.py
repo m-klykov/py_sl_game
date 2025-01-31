@@ -46,6 +46,7 @@ class Node:
         }
         self.active_track_index = {}  # Текущий активный путь в каждом направлении
         self.semaphore_states = {}  # Состояния семафоров (True - зелёный, False - красный)
+        self.color = BLACK
 
     def getCanvasX(self):
         return self.x * CELL_SIZE + CELL_SIZE // 2
@@ -160,6 +161,13 @@ class Track:
         self.n2_dy = -self.n1_dy
         self.enabled = False
 
+    def get_exit_direction(self, current_node):
+        """Возвращает направление выезда из текущего узла."""
+        if current_node == self.node1:
+            return (self.n1_dx, self.n1_dy)
+        else:
+            return (self.n2_dx, self.n2_dy)
+
     def assign_to_nodes(self):
         self.node1.outs[(self.n1_dx,self.n1_dy)].append(self)
         self.node2.outs[(self.n2_dx,self.n2_dy)].append(self)
@@ -216,6 +224,14 @@ class Track:
             # Если в обоих направлениях меньше двух активных путей, включаем путь
             if len(active_tracks_node1) < 2 and len(active_tracks_node2) < 2:
                 self.enabled = True
+
+    def get_position_on_track(self, progress):
+        """Возвращает координаты поезда на участке пути."""
+        x1, y1 = self.node1.getCanvasX(), self.node1.getCanvasY()
+        x2, y2 = self.node2.getCanvasX(), self.node2.getCanvasY()
+        x = x1 + (x2 - x1) * progress
+        y = y1 + (y2 - y1) * progress
+        return int(x), int(y)
 
 class CurvedTrack(Track):
     def __init__(self, node1, node2, direction):
@@ -275,6 +291,144 @@ class CurvedTrack(Track):
         distance = math.sqrt(dx ** 2 + dy ** 2)
         return abs(distance - CELL_SIZE) < 5  # Проверяем, насколько точка близка к радиусу дуги
 
+    def get_position_on_track(self, progress):
+        """Возвращает координаты поезда на дуге."""
+        x1, y1 = self.node1.getCanvasX(), self.node1.getCanvasY()
+        x2, y2 = self.node2.getCanvasX(), self.node2.getCanvasY()
+
+        if y2 > y1:
+            if self.direction == 'hor':
+                center_x, center_y = x1, y2
+                start_angle, end_angle = math.pi / 2, 0
+            else:
+                center_x, center_y = x2, y1
+                start_angle, end_angle = math.pi, math.pi * 3 / 2
+        else:
+            if self.direction == 'hor':
+                center_x, center_y = x1, y2
+                start_angle, end_angle = -math.pi / 2, 0
+            else:
+                center_x, center_y = x2, y1
+                start_angle, end_angle = math.pi, math.pi / 2
+
+        # Вычисляем текущий угол на дуге
+        angle = start_angle + (end_angle - start_angle) * progress
+
+        # Вычисляем координаты поезда на дуге
+        radius = CELL_SIZE
+        x = center_x + radius * math.cos(angle)
+        y = center_y - radius * math.sin(angle)
+        return int(x), int(y)
+
+class Train:
+    def __init__(self, start_node, color):
+        self.current_node = start_node
+        self.color = color  # Цвет поезда
+        self.is_active = True  # Активен ли поезд
+        self.current_track = None  # Текущий участок пути
+        self.progress = 0  # Прогресс движения между узлами (0..1)
+        self.start_node = None  # Начальный узел текущего участка
+        self.end_node = None  # Конечный узел текущего участка
+
+        # Инициализация начального участка
+        self.set_initial_track()
+
+    def set_initial_track(self):
+        """Устанавливает начальный участок пути."""
+        for direction in self.current_node.outs:
+            active_tracks = [track for track in self.current_node.outs[direction] if track.enabled]
+            if active_tracks:
+                self.current_track = active_tracks[0]
+                self.start_node = self.current_node
+                self.end_node = self.current_track.node1 if self.current_track.node2 == self.current_node else self.current_track.node2
+                break
+
+    def update(self, nodes):
+        """Обновляет положение поезда."""
+        if not self.is_active or not self.current_track:
+            return
+
+        # Определяем коэффициент скорости
+        speed_coefficient = 1.0
+        if isinstance(self.current_track, CurvedTrack):
+            # Длина дуги больше, чем прямой участок, поэтому замедляем движение
+            speed_coefficient = 0.7  # Можно настроить в зависимости от радиуса дуги
+
+        # Двигаем поезд
+        self.progress += 0.01 * speed_coefficient  # Скорость движения с учётом коэффициента
+        if self.progress >= 1:
+            # Поезд доехал до конца участка
+            self.progress = 0
+
+            # Определяем направление въезда в следующий узел
+            entry_direction = self.current_track.get_exit_direction(self.end_node)
+
+            # Проверяем семафор и стрелку
+            if not self.check_semaphore(self.end_node, entry_direction):
+                # Движение запрещено, разворачиваем поезд
+                self.reverse_direction()
+                return
+
+            # Перемещаем поезд в следующий узел
+            self.current_node = self.end_node
+
+            # Определяем следующий участок пути
+            self.set_next_track()
+
+            # Если поезд достиг терминального узла
+            if self.current_node.is_terminal():
+                if self.color == self.current_node.color:
+                    self.is_active = False  # Поезд достиг цели
+                else:
+                    self.reverse_direction()  # Меняем направление
+
+    def set_next_track(self):
+        """Определяет следующий участок пути с учётом стрелки."""
+        # Получаем направление выезда из текущего узла
+        exit_direction = (-self.current_track.get_exit_direction(self.end_node)[0],
+                          -self.current_track.get_exit_direction(self.end_node)[1])
+
+        # Получаем активный участок пути с учётом стрелки
+        active_track = self.current_node.get_active_track(exit_direction)
+        if active_track:
+            self.current_track = active_track
+            self.start_node = self.current_node
+            self.end_node = self.current_track.node1 if self.current_track.node2 == self.current_node else self.current_track.node2
+        else:
+            # Если нет активного пути, разворачиваем поезд
+            self.reverse_direction()
+
+    def reverse_direction(self):
+        """Разворачивает поезд на текущем участке пути."""
+        self.start_node, self.end_node = self.end_node, self.start_node
+        self.progress = 0  # Сбрасываем прогресс
+
+    def check_semaphore(self, next_node, entry_direction):
+        """Проверяет, можно ли двигаться в направлении следующего узла."""
+        # Проверяем семафор
+        if next_node.semaphore_states.get(entry_direction, True) == False:
+            return False  # Семафор закрыт
+
+        # Проверяем стрелку
+        active_track = next_node.get_active_track(entry_direction)
+        if active_track:
+            if active_track.node1 != self.current_node and active_track.node2 != self.current_node:
+                return False  # Стрелка направлена не туда
+
+        return True
+
+    def draw(self, screen):
+        """Рисует поезд."""
+        if not self.is_active or not self.current_track:
+            return
+
+        # Получаем координаты поезда на участке пути
+        if self.current_track.node1 == self.start_node:
+            x, y = self.current_track.get_position_on_track(self.progress)
+        else:
+            x, y = self.current_track.get_position_on_track(1-self.progress)
+        pygame.draw.circle(screen, self.color, (x, y), 8)
+
 # Инициализация Pygame
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_SIZE_X, SCREEN_SIZE_Y))
@@ -301,6 +455,9 @@ for x in range(GRID_SIZE_X):
 for track in tracks:
     track.assign_to_nodes()
 
+# Глобальный список поездов
+trains = []
+
 # Главный цикл
 running = True
 while running:
@@ -323,6 +480,15 @@ while running:
                 for row in nodes:
                     for node in row:
                         node.handle_click(*event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:  # Правая кнопка мыши
+            if not construction_mode:
+                for row in nodes:
+                    for node in row:
+                        if node.is_terminal() and math.hypot(node.getCanvasX() - event.pos[0],
+                                                             node.getCanvasY() - event.pos[1]) < 10:
+                            # Создаём поезд с цветом узла
+                            trains.append(Train(node, node.color))
+
 
     mouse_pos = pygame.mouse.get_pos()
 
@@ -339,6 +505,11 @@ while running:
     for row in nodes:
         for node in row:
             node.draw(screen, construction_mode)
+
+    # Обновляем и рисуем поезда
+    for train in trains:
+        train.update(nodes)
+        train.draw(screen)
 
     pygame.display.flip()
     clock.tick(60)
