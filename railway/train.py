@@ -2,6 +2,7 @@ import pygame
 import math
 from node import Node
 from vagon import Vagon
+from crosses import Crosses
 
 class Train:
     def __init__(self, start_node, color, vagon_count=2):
@@ -139,7 +140,7 @@ class Train:
                 first_unactive.is_pre_tail = True
 
 
-    def draw(self, screen, cell_size):
+    def draw(self, screen, cell_size, crosses):
         """Рисует поезд."""
         if not self.is_active:
             return

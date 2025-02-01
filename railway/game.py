@@ -5,6 +5,7 @@ import random
 from node import Node
 from track import Track, CurvedTrack
 from train import Train
+from crosses import Crosses
 
 class Game:
     def __init__(self, grid_size_x, grid_size_y, cell_size):
@@ -15,6 +16,7 @@ class Game:
         self.screen_size_y = grid_size_y * cell_size
         self.construction_mode = True
         self.nodes = [[Node(x, y) for y in range(grid_size_y)] for x in range(grid_size_x)]
+        self.crosses = Crosses(self.nodes,cell_size)
         self.tracks = []
         self.trains = []
         self.colors = [
@@ -222,6 +224,8 @@ class Game:
                     if not self.construction_mode:
                         node.blocked_dirs = {} #обнуление блоеироаок стрелок
 
+            self.crosses.clear()
+
             # Обновляем и рисуем поезда
             for train in self.trains:
                 if not self.construction_mode:
@@ -229,7 +233,9 @@ class Game:
                     if not train.is_active:
                         self.trains.remove(train)
 
-                train.draw(screen, self.cell_size)
+                train.draw(screen, self.cell_size, self.crosses)
+
+            self.crosses.draw(screen)
 
             pygame.display.flip()
             clock.tick(60)
