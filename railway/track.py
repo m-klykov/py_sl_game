@@ -2,7 +2,7 @@ import pygame
 import math
 
 class Track:
-    def __init__(self, node1, node2):
+    def __init__(self, node1, node2, blocked=False):
         self.node1 = node1
         self.node2 = node2
         self.n1_dx = self.sign(node2.x - node1.x)
@@ -10,6 +10,7 @@ class Track:
         self.n2_dx = -self.n1_dx
         self.n2_dy = -self.n1_dy
         self.enabled = False
+        self.blocked = blocked
 
     @staticmethod
     def sign(a):
@@ -77,6 +78,9 @@ class Track:
 
     def toggle(self):
         """Переключает состояние пути, если это возможно."""
+        if self.blocked:
+            return
+
         if self.enabled:
             self.enabled = False
         else:

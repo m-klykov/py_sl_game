@@ -200,7 +200,7 @@ class Game:
                                     # Создаём поезд случайного цвета, отличного от цвета станции
                                     available_colors = [color for color in self.colors if color != node.color]
                                     train_color = random.choice(available_colors)
-                                    self.trains.append(Train(node, train_color))
+                                    self.trains.append(Train(node, train_color,random.randint(1,4)))
 
             mouse_pos = pygame.mouse.get_pos()
 
