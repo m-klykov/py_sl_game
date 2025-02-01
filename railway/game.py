@@ -1,6 +1,7 @@
 import pygame
 import json
 import math
+import random
 from node import Node
 from track import Track, CurvedTrack
 from train import Train
@@ -16,8 +17,46 @@ class Game:
         self.nodes = [[Node(x, y) for y in range(grid_size_y)] for x in range(grid_size_x)]
         self.tracks = []
         self.trains = []
+        self.colors = [
+            (255, 0, 0),  # Красный
+            (0, 255, 0),  # Зелёный
+            (0, 0, 255),  # Синий
+            (255, 255, 0),  # Жёлтый
+            (255, 0, 255),  # Пурпурный
+            (0, 255, 255),  # Голубой
+            (128, 0, 128),  # Фиолетовый
+            (255, 165, 0)  # Оранжевый
+        ]
         self.init_tracks()
-        self.load_state()
+        self.init_stations()  # Инициализация станций
+        # self.load_state()
+
+    def init_stations(self):
+        """Выбирает 8 случайных узлов по периметру и назначает им цвета."""
+        perimeter_nodes = []
+
+        # Собираем узлы по периметру
+        for x in range(self.grid_size_x):
+            for y in range(self.grid_size_y):
+                if x == 0 or x == self.grid_size_x - 1 or y == 0 or y == self.grid_size_y - 1:
+                    perimeter_nodes.append(self.nodes[x][y])
+
+        # Выбираем 8 случайных узлов из периметра
+        selected_nodes = random.sample(perimeter_nodes, 8)
+
+        for i, node in enumerate(selected_nodes):
+            node.color = self.colors[i]  # Назначаем уникальный цвет
+            node.is_station = True  # Помечаем узел как станцию
+            good_tracks = []
+            for dir in node.outs:
+                for track in node.outs[dir]:
+                    oth_node = track.get_other_node(node)
+                    x, y = oth_node.x, oth_node.y
+                    if (x > 0 and x < self.grid_size_x - 1
+                    and y>0 and  y < self.grid_size_y - 1):
+                        good_tracks.append(track)
+            track = random.choice(good_tracks)
+            track.enabled = True
 
     def init_tracks(self):
         """Инициализирует пути между узлами."""
@@ -52,7 +91,8 @@ class Game:
                 node_data = {
                     "x": node.x,
                     "y": node.y,
-                    "color": node.color
+                    "color": node.color,
+                    "is_station": node.is_station
                 }
                 data["nodes"].append(node_data)
 
@@ -94,6 +134,7 @@ class Game:
             x, y = node_data["x"], node_data["y"]
             node = self.nodes[x][y]
             node.color = node_data["color"]
+            node.is_station = node_data["is_station"]
 
         # Восстанавливаем пути
         self.tracks.clear()
@@ -133,7 +174,7 @@ class Game:
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self.save_state()
+                    # self.save_state()
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     self.construction_mode = not self.construction_mode
@@ -152,10 +193,14 @@ class Game:
                     if not self.construction_mode:
                         for row in self.nodes:
                             for node in row:
-                                if node.is_terminal() and math.hypot(node.getCanvasX(self.cell_size) - pygame.mouse.get_pos()[0],
-                                                                     node.getCanvasY(self.cell_size) - pygame.mouse.get_pos()[1]) < 10:
-                                    # Создаём поезд с цветом узла
-                                    self.trains.append(Train(node, node.color))
+                                if (node.is_station and node.is_terminal()
+                                and math.hypot(
+                                        node.getCanvasX(self.cell_size) - pygame.mouse.get_pos()[0],
+                                        node.getCanvasY(self.cell_size) - pygame.mouse.get_pos()[1]) < 10):
+                                    # Создаём поезд случайного цвета, отличного от цвета станции
+                                    available_colors = [color for color in self.colors if color != node.color]
+                                    train_color = random.choice(available_colors)
+                                    self.trains.append(Train(node, train_color))
 
             mouse_pos = pygame.mouse.get_pos()
 
@@ -175,7 +220,11 @@ class Game:
 
             # Обновляем и рисуем поезда
             for train in self.trains:
-                train.update(self.nodes)
+                if not self.construction_mode:
+                    train.update(self.nodes)
+                    if not train.is_active:
+                        self.trains.remove(train)
+
                 train.draw(screen, self.cell_size)
 
             pygame.display.flip()

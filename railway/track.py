@@ -39,22 +39,26 @@ class Track:
             dx1, dy1, dx2, dy2 = self.n2_dx, self.n2_dy, self.n1_dx, self.n1_dy
 
         if dy1 == 0:
-            return dx1, -dy2 / 3
+            return dx1, -dy2 / 5
         else:
-            return -dx2 / 3, dy1
+            return -dx2 / 5, dy1
 
     def get_color(self, is_hovered, construction_mode):
         """Возвращает цвет пути в зависимости от его состояния и наведения."""
         if self.enabled:
-            return (255, 0, 0) if is_hovered and construction_mode else (0, 0, 0)
+            return (255, 0, 0) if is_hovered and construction_mode else (140, 140, 140)
         else:
-            return (255, 220, 220) if is_hovered else (240, 240, 240)
+            return (255, 100, 100) if is_hovered else (240, 240, 240)
 
     def draw(self, screen, mouse_pos, construction_mode, cell_size):
         color = self.get_color(self.is_hovered(*mouse_pos, cell_size), construction_mode)
+        width = 8 if self.enabled else 3
         pygame.draw.line(screen, color,
                          (self.node1.getCanvasX(cell_size), self.node1.getCanvasY(cell_size)),
-                         (self.node2.getCanvasX(cell_size), self.node2.getCanvasY(cell_size)), 3)
+                         (self.node2.getCanvasX(cell_size), self.node2.getCanvasY(cell_size)), width)
+
+    def get_other_node(self, node):
+        return self.node1 if self.node2 == node else self.node2
 
     def is_hovered(self, x, y, cell_size):
         """Проверяет, находится ли курсор рядом с прямым путём."""
@@ -76,9 +80,9 @@ class Track:
         if self.enabled:
             self.enabled = False
         else:
-            active_tracks_node1 = [track for track in self.node1.outs[(self.n1_dx, self.n1_dy)] if track.enabled]
-            active_tracks_node2 = [track for track in self.node2.outs[(self.n2_dx, self.n2_dy)] if track.enabled]
-            if len(active_tracks_node1) < 2 and len(active_tracks_node2) < 2:
+            # Проверяем, можно ли добавить путь в обоих узлах
+            if self.node1.can_add_track((self.n1_dx, self.n1_dy)) and \
+                    self.node2.can_add_track((self.n2_dx, self.n2_dy)):
                 self.enabled = True
 
     def get_position_on_track(self, progress, cell_size):
@@ -111,6 +115,8 @@ class CurvedTrack(Track):
         x1, y1 = self.node1.getCanvasX(cell_size), self.node1.getCanvasY(cell_size)
         x2, y2 = self.node2.getCanvasX(cell_size), self.node2.getCanvasY(cell_size)
 
+        width = 8 if self.enabled else 3
+
         if y2 > y1:
             if self.direction == 'hor':
                 center_x, center_y = x1, y2
@@ -126,9 +132,11 @@ class CurvedTrack(Track):
                 center_x, center_y = x2, y1
                 start_angle, end_angle = math.pi / 2, math.pi
 
-        radius = cell_size
+        radius = cell_size + width //2
+
+
         arc_rect = (center_x - radius, center_y - radius, radius * 2, radius * 2)
-        pygame.draw.arc(screen, color, arc_rect, start_angle, end_angle, 3)
+        pygame.draw.arc(screen, color, arc_rect, start_angle, end_angle, width)
 
     def is_hovered(self, x, y, cell_size):
         """Проверяет, находится ли курсор рядом с дугой и внутри ограничивающего прямоугольника."""

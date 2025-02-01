@@ -15,6 +15,7 @@ class Node:
         self.active_track_index = {}  # Текущий активный путь в каждом направлении
         self.semaphore_states = {}  # Состояния семафоров (True - зелёный, False - красный)
         self.color = (0, 0, 0)  # Цвет узла
+        self.is_station = False  # Является ли узел станцией
 
     def getCanvasX(self, cell_size):
         return self.x * cell_size + cell_size // 2
@@ -49,6 +50,18 @@ class Node:
         if len(active_tracks) > 1:
             self.active_track_index[direction] = (self.active_track_index.get(direction, 0) + 1) % len(active_tracks)
 
+    def can_add_track(self, direction):
+        """Проверяет, можно ли добавить путь в указанном направлении."""
+        if self.is_station:
+            # Для станции общее количество путей не должно превышать 1
+            total_tracks = 0
+            for direction in self.outs:
+                total_tracks += len(self.get_dir_tracks(direction))
+            return total_tracks < 1
+        else:
+            # Для обычного узла в указанном направлении не должно быть больше одного пути
+            return len(self.get_dir_tracks(direction)) < 2
+
     def draw_arrow(self, screen, direction, cell_size):
         """Рисует стрелку в указанном направлении."""
         x, y = self.getCanvasX(cell_size), self.getCanvasY(cell_size)
@@ -62,10 +75,11 @@ class Node:
         """Рисует семафор в указанном направлении."""
         dx, dy = direction
         x, y = self.getCanvasX(cell_size), self.getCanvasY(cell_size)
-        semaphore_x = x + dx * cell_size // 4
-        semaphore_y = y + dy * cell_size // 4
+        semaphore_x = x + dx * cell_size // 8
+        semaphore_y = y + dy * cell_size // 8
         color = (0, 255, 0) if self.semaphore_states.get(direction, True) else (255, 0, 0)
         pygame.draw.circle(screen, color, (semaphore_x, semaphore_y), 5)
+        pygame.draw.line(screen, color, (x, y), (semaphore_x, semaphore_y), 1)
 
     def has_semaphore(self, direction):
         active_tracks = self.get_dir_tracks(direction)
@@ -90,14 +104,18 @@ class Node:
                 if math.hypot(mouse_x - end_x, mouse_y - end_y) < 20:
                     self.toggle_active_track(direction)
             elif self.has_semaphore(direction):
-                semaphore_x = x + direction[0] * cell_size // 4
-                semaphore_y = y + direction[1] * cell_size // 4
+                semaphore_x = x + direction[0] * cell_size // 8
+                semaphore_y = y + direction[1] * cell_size // 8
                 if math.hypot(mouse_x - semaphore_x, mouse_y - semaphore_y) < 10:
                     self.semaphore_states[direction] = not self.semaphore_states.get(direction, True)
 
     def draw(self, screen, construction_mode, cell_size):
         """Рисует узел, стрелки и семафоры."""
-        if self.is_terminal():
+        if self.is_station:
+            # Рисуем станцию
+            pygame.draw.circle(screen, self.color, (self.getCanvasX(cell_size), self.getCanvasY(cell_size)), 8)
+        elif self.is_terminal():
+            # Рисуем терминальный узел
             pygame.draw.circle(screen, self.color, (self.getCanvasX(cell_size), self.getCanvasY(cell_size)), 5)
 
         if not construction_mode:
