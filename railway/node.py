@@ -14,6 +14,7 @@ class Node:
         }
         self.active_track_index = {}  # Текущий активный путь в каждом направлении
         self.semaphore_states = {}  # Состояния семафоров (True - зелёный, False - красный)
+        self.blocked_dirs = {}  # Каие напралления стрелок заблокированы поездами
         self.color = (0, 0, 0)  # Цвет узла
         self.is_station = False  # Является ли узел станцией
 
@@ -69,7 +70,10 @@ class Node:
         dx, dy = track.get_vector_for_node(self)
         end_x = x + dx * cell_size // 3
         end_y = y + dy * cell_size // 3
-        pygame.draw.line(screen, (0, 255, 0), (x, y), (end_x, end_y), 3)
+        color = (0, 255, 0)
+        if self.blocked_dirs.get(direction):
+            color = (200,200,200)
+        pygame.draw.line(screen, color, (x, y), (end_x, end_y), 3)
 
     def draw_semaphore(self, screen, direction, cell_size):
         """Рисует семафор в указанном направлении."""
@@ -78,6 +82,8 @@ class Node:
         semaphore_x = x + dx * cell_size // 8
         semaphore_y = y + dy * cell_size // 8
         color = (0, 255, 0) if self.semaphore_states.get(direction, True) else (255, 0, 0)
+        if self.blocked_dirs.get(direction):
+            color = (200,200,200)
         pygame.draw.circle(screen, color, (semaphore_x, semaphore_y), 5)
         pygame.draw.line(screen, color, (x, y), (semaphore_x, semaphore_y), 1)
 
@@ -97,6 +103,8 @@ class Node:
         """Обрабатывает клик мыши в режиме управления."""
         x, y = self.getCanvasX(cell_size), self.getCanvasY(cell_size)
         for direction in self.outs:
+            if self.blocked_dirs.get(direction):
+                continue
             active_tracks = self.get_dir_tracks(direction)
             if len(active_tracks) > 1:
                 end_x = x + direction[0] * cell_size // 3

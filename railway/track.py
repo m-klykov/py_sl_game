@@ -2,7 +2,7 @@ import pygame
 import math
 
 class Track:
-    def __init__(self, node1, node2, blocked=False):
+    def __init__(self, node1, node2):
         self.node1 = node1
         self.node2 = node2
         self.n1_dx = self.sign(node2.x - node1.x)
@@ -10,7 +10,8 @@ class Track:
         self.n2_dx = -self.n1_dx
         self.n2_dy = -self.n1_dy
         self.enabled = False
-        self.blocked = blocked
+        self.blocked = False
+        self.bisy = False # занято поездом
 
     @staticmethod
     def sign(a):
@@ -63,6 +64,9 @@ class Track:
 
     def is_hovered(self, x, y, cell_size):
         """Проверяет, находится ли курсор рядом с прямым путём."""
+        if self.blocked or self.bisy:
+            return False
+
         x1, y1 = self.node1.getCanvasX(cell_size), self.node1.getCanvasY(cell_size)
         x2, y2 = self.node2.getCanvasX(cell_size), self.node2.getCanvasY(cell_size)
         if self.node1.x == self.node2.x:
@@ -78,7 +82,7 @@ class Track:
 
     def toggle(self):
         """Переключает состояние пути, если это возможно."""
-        if self.blocked:
+        if self.blocked or self.bisy:
             return
 
         if self.enabled:
@@ -144,6 +148,9 @@ class CurvedTrack(Track):
 
     def is_hovered(self, x, y, cell_size):
         """Проверяет, находится ли курсор рядом с дугой и внутри ограничивающего прямоугольника."""
+        if self.blocked or self.bisy:
+            return False
+
         center_x = self.node1.getCanvasX(cell_size) if self.direction == 'hor' else self.node2.getCanvasX(cell_size)
         center_y = self.node2.getCanvasY(cell_size) if self.direction == 'hor' else self.node1.getCanvasY(cell_size)
 

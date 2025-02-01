@@ -22,8 +22,38 @@ class Train:
         if not self.is_active:
             return
 
+        used_nodes = {}
         for vagon in self.vagons:
+
             vagon.update(nodes)
+            if vagon.is_active:
+                # определяем заблокированые направления узлов
+                ct = vagon.current_track
+                if not ct:
+                    continue
+                ct.bisy = True
+                n_k = (ct.node1.x,ct.node1.y)
+                n_d = (ct.n1_dx,ct.n1_dy)
+                if not n_k in used_nodes:
+                    used_nodes[n_k] = {}
+                used_nodes[n_k][n_d] = 1
+
+                n_k = (ct.node2.x, ct.node2.y)
+                n_d = (ct.n2_dx, ct.n2_dy)
+                if not n_k in used_nodes:
+                    used_nodes[n_k] = {}
+                used_nodes[n_k][n_d] = 1
+
+        if used_nodes:
+            for n_k in used_nodes:
+                if len(used_nodes[n_k])==2:
+                    x,y = n_k
+                    for direction in used_nodes[n_k]:
+                        nodes[x][y].blocked_dirs[direction] = 1
+
+
+
+
 
     def reverse_direction(self):
         """Разворачиваем поезд по команде первого вагона"""

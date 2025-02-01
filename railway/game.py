@@ -57,6 +57,7 @@ class Game:
                         good_tracks.append(track)
             track = random.choice(good_tracks)
             track.enabled = True
+            track.blocked = True
 
     def init_tracks(self):
         """Инициализирует пути между узлами."""
@@ -200,7 +201,7 @@ class Game:
                                     # Создаём поезд случайного цвета, отличного от цвета станции
                                     available_colors = [color for color in self.colors if color != node.color]
                                     train_color = random.choice(available_colors)
-                                    self.trains.append(Train(node, train_color,random.randint(1,4)))
+                                    self.trains.append(Train(node, train_color,random.randint(2,4)))
 
             mouse_pos = pygame.mouse.get_pos()
 
@@ -213,10 +214,13 @@ class Game:
                 for track in self.tracks:
                     if track.enabled:
                         track.draw(screen, mouse_pos, self.construction_mode, self.cell_size)
+                    track.bisy = False
 
             for row in self.nodes:
                 for node in row:
                     node.draw(screen, self.construction_mode, self.cell_size)
+                    if not self.construction_mode:
+                        node.blocked_dirs = {} #обнуление блоеироаок стрелок
 
             # Обновляем и рисуем поезда
             for train in self.trains:
