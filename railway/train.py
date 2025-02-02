@@ -2,12 +2,18 @@ import pygame
 import math
 from node import Node
 from vagon import Vagon
-from crosses import Crosses
+
+T_NORMAL = 1
+T_CRAZY = 2
+T_CRAFT = 3
 
 class Train:
-    def __init__(self, start_node, color, vagon_count=2):
+
+    def __init__(self, start_node, color, vagon_count=2, t_type=T_NORMAL):
         self.is_active = True # Поезд активен
+        self.is_crached = False # Поезд попал в аварию
         self.color = color  # Цвет поезда
+        self.t_type = t_type  # Тип поезда
         self.start_node = start_node  # Исходная станция
         self.vagons = []
         for i in range(vagon_count):
@@ -89,6 +95,10 @@ class Train:
             if need_pretail:
                 last_vagon.is_pre_tail = True
 
+    # авария поезда
+    def do_crash(self):
+        self.is_active = False
+        self.is_crached = True
 
     def vagon_out(self,sor_vagon):
         """головной вагон доехал до целм"""
@@ -146,4 +156,4 @@ class Train:
             return
 
         for vagon in self.vagons:
-            vagon.draw(screen, cell_size)
+            vagon.draw(screen, cell_size, crosses)

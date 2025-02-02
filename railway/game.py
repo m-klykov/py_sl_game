@@ -3,6 +3,7 @@ import json
 import math
 import random
 from node import Node
+from railway.crosses import T_CRAFT
 from track import Track, CurvedTrack
 from train import Train
 from crosses import Crosses
@@ -31,6 +32,7 @@ class Game:
         ]
         self.init_tracks()
         self.init_stations()  # Инициализация станций
+        self.tr_started = 0 # обшее число поездов
         # self.load_state()
 
     def init_stations(self):
@@ -44,9 +46,9 @@ class Game:
                     perimeter_nodes.append(self.nodes[x][y])
 
         # Выбираем 8 случайных узлов из периметра
-        selected_nodes = random.sample(perimeter_nodes, 8)
+        self.stations = random.sample(perimeter_nodes, 8)
 
-        for i, node in enumerate(selected_nodes):
+        for i, node in enumerate(self.stations):
             node.color = self.colors[i]  # Назначаем уникальный цвет
             node.is_station = True  # Помечаем узел как станцию
             good_tracks = []
@@ -164,6 +166,32 @@ class Game:
         # Восстанавливаем режим
         self.construction_mode = data["construction_mode"]
 
+    def startCraftTrain(self,node):
+        train_color = (80,80,20)
+        self.trains.append(Train(node, train_color, 2, T_CRAFT))
+
+    # Запустить очередной случайны поезд
+    def startRandomNexrTrain(self):
+        max_statuin_cnt = self.tr_started // 5 + 2
+        colors = []
+        stations = []
+        cnt = 0
+        for node in self.stations:
+            if cnt>=max_statuin_cnt:
+                break;
+            stations.append(node)
+            colors.append(node.color)
+            cnt += 1
+
+        cur_station = random.choice(stations)
+        if cur_station.is_station_bisy():
+            return
+
+        available_colors = [color for color in colors if color != cur_station.color]
+        train_color = random.choice(available_colors)
+        self.trains.append(Train(cur_station, train_color, random.randint(2, 5)))
+        self.tr_started += 1
+
     def run(self):
         """Запускает игру."""
         pygame.init()
@@ -201,9 +229,7 @@ class Game:
                                         node.getCanvasX(self.cell_size) - pygame.mouse.get_pos()[0],
                                         node.getCanvasY(self.cell_size) - pygame.mouse.get_pos()[1]) < 10):
                                     # Создаём поезд случайного цвета, отличного от цвета станции
-                                    available_colors = [color for color in self.colors if color != node.color]
-                                    train_color = random.choice(available_colors)
-                                    self.trains.append(Train(node, train_color,random.randint(2,4)))
+                                    self.startCraftTrain(node)
 
             mouse_pos = pygame.mouse.get_pos()
 
@@ -213,6 +239,10 @@ class Game:
                     track.draw(screen, mouse_pos, self.construction_mode, self.cell_size)
             else:
                 # В режиме управления отображаем только активные пути
+
+                if not self.trains or random.random() < 0.001 / (len(self.trains)+1):
+                    self.startRandomNexrTrain()
+
                 for track in self.tracks:
                     if track.enabled:
                         track.draw(screen, mouse_pos, self.construction_mode, self.cell_size)
@@ -233,6 +263,7 @@ class Game:
                     if not train.is_active:
                         self.trains.remove(train)
 
+                self.crosses.new_train(train)
                 train.draw(screen, self.cell_size, self.crosses)
 
             self.crosses.draw(screen)

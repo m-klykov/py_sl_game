@@ -2,8 +2,10 @@ import pygame
 import math
 from track import Track, CurvedTrack
 from node import Node
+from crosses import Crosses
 
 VAGON_LEN = 0.3 #длина вагона в единицах прогресса
+T_CRAFT = 3
 
 class Vagon:
     def __init__(self, train, start_node, color, is_head):
@@ -54,11 +56,15 @@ class Vagon:
             # Поезд доехал до конца участка
 
             # Если поезд достиг терминального узла
+
             if self.end_node.is_terminal():
                 if self.color == self.end_node.color:
                     # вагон доехал
                     self.train.vagon_out(self)
                     return
+                elif self.end_node.is_station and self.train.t_type == T_CRAFT:
+                    # дризина доехла
+                    self.train.vagon_out(self)
                 else:
                     self.train.reverse_direction()  # Меняем направление поезда
                     return
@@ -120,7 +126,7 @@ class Vagon:
 
         return True
 
-    def draw(self, screen, cell_size):
+    def draw(self, screen, cell_size, crosses):
         """Рисует поезд."""
         if not self.is_active or not self.current_track:
             return
@@ -131,3 +137,4 @@ class Vagon:
         else:
             x, y = self.current_track.get_position_on_track(1 - self.progress, cell_size)
         pygame.draw.circle(screen, self.color, (x, y), 8)
+        crosses.add_point(x,y)

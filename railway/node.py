@@ -28,6 +28,14 @@ class Node:
         """Получить список доступных треков по направлению"""
         return [track for track in self.outs[direction] if track.enabled]
 
+    def is_station_bisy(self):
+        for direction in self.outs:
+            active_tracks =  self.get_dir_tracks(direction)
+            if active_tracks:
+                track = active_tracks[0]
+                return track.bisy
+        return True
+
     def is_terminal(self):
         """Проверяет, является ли узел конечным (имеет ровно один активный исходящий путь)."""
         active_directions = 0
