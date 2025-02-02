@@ -78,10 +78,10 @@ class Node:
         dx, dy = track.get_vector_for_node(self)
         end_x = x + dx * cell_size // 3
         end_y = y + dy * cell_size // 3
-        color = (0, 255, 0)
+        color = (255, 0, 0)
         if self.blocked_dirs.get(direction):
             color = (200,200,200)
-        pygame.draw.line(screen, color, (x, y), (end_x, end_y), 3)
+        pygame.draw.line(screen, color, (x, y), (end_x, end_y), 4)
 
     def draw_semaphore(self, screen, direction, cell_size):
         """Рисует семафор в указанном направлении."""
@@ -106,6 +106,10 @@ class Node:
 
         act_track = self.get_active_track(direction)
         return isinstance(act_track, CurvedTrack)
+
+    def is_semaphore_open(self, direction):
+        return (not self.has_semaphore(direction)
+        or self.semaphore_states.get(direction, True))
 
     def handle_click(self, mouse_x, mouse_y, cell_size):
         """Обрабатывает клик мыши в режиме управления."""

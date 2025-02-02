@@ -48,7 +48,7 @@ class Track:
     def get_color(self, is_hovered, construction_mode):
         """Возвращает цвет пути в зависимости от его состояния и наведения."""
         if self.enabled:
-            return (255, 0, 0) if is_hovered and construction_mode else (140, 140, 140)
+            return (255, 0, 0) if is_hovered and construction_mode else (200, 200, 200)
         else:
             return (255, 100, 100) if is_hovered else (240, 240, 240)
 

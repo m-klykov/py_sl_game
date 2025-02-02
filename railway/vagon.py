@@ -115,7 +115,7 @@ class Vagon:
     def check_semaphore(self, next_node, entry_direction):
         """Проверяет, можно ли двигаться в направлении следующего узла."""
         # Проверяем семафор
-        if next_node.semaphore_states.get(entry_direction, True) == False:
+        if not next_node.is_semaphore_open(entry_direction):
             return False  # Семафор закрыт
 
         # Проверяем стрелку
